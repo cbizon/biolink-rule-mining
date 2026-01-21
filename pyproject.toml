@@ -1,0 +1,28 @@
+[project]
+name = "biolink-rule-mining"
+version = "0.1.0"
+description = "Mine association rules from biolink metapath statistics"
+requires-python = ">=3.12"
+dependencies = [
+    "metapath-counts @ git+https://github.com/cbizon/metapath-counts.git",
+    "pandas>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rule_mining"]
