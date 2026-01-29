@@ -42,13 +42,16 @@ def prepare_graph(
     input_dir: Path,
     output_dir: Path,
     filter_predicates: list[str] | None = None,
+    generate_redundant: bool = True,
 ) -> None:
-    """Prepare graph by filtering and augmenting.
+    """Prepare graph by filtering and optionally augmenting.
 
     Args:
         input_dir: Directory containing nodes.jsonl and edges.jsonl
         output_dir: Directory to write filtered/augmented graph
         filter_predicates: List of predicates to filter out (default: ["biolink:subclass_of"])
+        generate_redundant: If True, generate redundant edges (ancestors, qualifier permutations).
+                           If False, only encode qualifiers into predicate names.
     """
     if filter_predicates is None:
         filter_predicates = ["biolink:subclass_of"]
@@ -75,6 +78,7 @@ def prepare_graph(
     print(f"  Input:  {input_dir}")
     print(f"  Output: {output_dir}")
     print(f"  Filtering predicates: {filter_predicates}")
+    print(f"  Generate redundant edges: {generate_redundant}")
     print()
 
     # Pass 1: Process edges
@@ -85,6 +89,7 @@ def prepare_graph(
         output_edges,
         node_tracker,
         filter_predicates,
+        generate_redundant,
     )
 
     print(f"  Edges read: {edges_read:,}")

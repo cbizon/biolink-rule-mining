@@ -158,3 +158,73 @@ def test_prepare_graph_generates_redundant_edges(tmp_path):
     for edge in output_edges:
         assert "object_direction_qualifier" not in edge
         assert "object_aspect_qualifier" not in edge
+
+
+def test_prepare_graph_no_redundant_mode(tmp_path):
+    """Test non-redundant mode: encode qualifiers but no ancestors."""
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+
+    # Create edges with and without qualifiers
+    edges = [
+        {
+            "id": "e1",
+            "subject": "Gene:1",
+            "predicate": "biolink:affects",
+            "object": "Disease:1",
+            "object_direction_qualifier": "increased",
+            "object_aspect_qualifier": "activity",
+        },
+        {
+            "id": "e2",
+            "subject": "Gene:2",
+            "predicate": "biolink:related_to",
+            "object": "Disease:2",
+        },
+    ]
+
+    nodes = [
+        {"id": "Gene:1", "name": "Gene 1"},
+        {"id": "Disease:1", "name": "Disease 1"},
+        {"id": "Gene:2", "name": "Gene 2"},
+        {"id": "Disease:2", "name": "Disease 2"},
+    ]
+
+    with open(input_dir / "edges.jsonl", "w") as f:
+        for edge in edges:
+            f.write(json.dumps(edge) + "\n")
+
+    with open(input_dir / "nodes.jsonl", "w") as f:
+        for node in nodes:
+            f.write(json.dumps(node) + "\n")
+
+    # Run preparation with generate_redundant=False
+    prepare_graph(input_dir, output_dir, generate_redundant=False)
+
+    # Read output edges
+    output_edges = []
+    with open(output_dir / "edges.jsonl") as f:
+        for line in f:
+            output_edges.append(json.loads(line))
+
+    # Should have exactly 2 edges (one for each input)
+    assert len(output_edges) == 2
+
+    # Edge with qualifiers should have them encoded
+    qualified_edges = [e for e in output_edges if e["id"] == "e1"]
+    assert len(qualified_edges) == 1
+    assert qualified_edges[0]["predicate"] == "biolink:affects_increased_activity"
+    assert "object_direction_qualifier" not in qualified_edges[0]
+    assert "object_aspect_qualifier" not in qualified_edges[0]
+
+    # Edge without qualifiers should be unchanged
+    plain_edges = [e for e in output_edges if e["id"] == "e2"]
+    assert len(plain_edges) == 1
+    assert plain_edges[0]["predicate"] == "biolink:related_to"
+
+    # Should NOT have any ancestor predicates
+    predicates = [e["predicate"] for e in output_edges]
+    # "affects" is a child of "regulates" in biolink model
+    assert "biolink:regulates" not in predicates
+    # related_to is the root, so no ancestors to check

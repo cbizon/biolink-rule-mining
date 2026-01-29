@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """CLI script to prepare graphs for metapath analysis.
 
-Filters and augments knowledge graphs by:
+Filters and optionally augments knowledge graphs by:
 1. Filtering out specified predicates (default: subclass_of)
 2. Removing orphaned nodes
-3. Generating redundant edges (ancestor predicates and qualifier combinations)
+3. Encoding qualifiers into predicate names (always)
+4. Optionally generating redundant edges (ancestor predicates and qualifier combinations)
 """
 
 import argparse
@@ -44,6 +45,12 @@ def main():
         help="Predicates to filter out (default: biolink:subclass_of)",
     )
 
+    parser.add_argument(
+        "--no-redundant",
+        action="store_true",
+        help="Disable redundant edge generation (only encode qualifiers, no ancestors)",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -51,6 +58,7 @@ def main():
             input_dir=args.input,
             output_dir=args.output,
             filter_predicates=args.filter_predicates,
+            generate_redundant=not args.no_redundant,
         )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

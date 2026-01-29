@@ -56,9 +56,25 @@ The `metapath-counts` package is installed from the local directory at `../metap
 Before running metapath analysis, graphs should be prepared using the `prepare_graph.py` script. This preprocessing:
 1. **Filters edges** - Removes specified predicates (default: `biolink:subclass_of`)
 2. **Removes orphaned nodes** - Drops nodes with no remaining edges after filtering
-3. **Generates redundant edges** - Adds edges for:
-   - Ancestor predicates (e.g., `affects` → `regulates`, `related_to`)
-   - Qualifier permutations with encoded predicates (e.g., `affects` with qualifiers → `affects_increased_activity`)
+3. **Encodes qualifiers** - Converts qualifier fields into predicate names
+4. **Optionally generates redundant edges** - Adds edges for ancestor predicates and qualifier permutations
+
+### Processing Modes
+
+The script supports two modes controlled by the `--no-redundant` flag:
+
+**Default Mode (Redundant Edges)**
+- Generates multiple edges from each input edge
+- Creates all ancestor predicates (e.g., `affects` → `regulates`, `related_to`)
+- Creates all qualifier permutations (e.g., `affects` with `increased`/`activity` → also generates `affects_increased`, `affects_activity`, `affects`)
+- Useful for rule mining that should consider predicate hierarchies
+
+**Non-Redundant Mode (`--no-redundant`)**
+- Generates exactly one edge per input edge
+- Encodes qualifiers into the predicate name, replacing the original edge
+- Does NOT add ancestor predicates
+- Does NOT add qualifier permutations
+- Simpler output, better for direct analysis without hierarchy inference
 
 ### Qualifier Encoding
 
@@ -66,17 +82,27 @@ When edges have `object_direction_qualifier` or `object_aspect_qualifier`, the q
 - Both qualifiers: `biolink:affects_increased_activity`
 - Direction only: `biolink:affects_increased`
 - Aspect only: `biolink:affects_activity`
-- Neither: `biolink:affects`
+- Neither: `biolink:affects` (unchanged)
 
 All qualifier fields are removed from the edge after encoding into the predicate name.
 
 ### Prepare a Graph
 
+**With redundant edges (default):**
 ```bash
 uv run python scripts/prepare_graph.py \
     --input ../translator_kg/Jan_20 \
     --output ../translator_kg/Jan_20_filtered_redundant \
     --filter-predicates biolink:subclass_of
+```
+
+**Without redundant edges:**
+```bash
+uv run python scripts/prepare_graph.py \
+    --input ../translator_kg/Jan_20 \
+    --output ../translator_kg/Jan_20_filtered_nonredundant \
+    --filter-predicates biolink:subclass_of \
+    --no-redundant
 ```
 
 The script expects input directory with `nodes.jsonl` and `edges.jsonl` files, and creates the same structure in the output directory.
