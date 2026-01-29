@@ -31,19 +31,74 @@ The strength of a rule is measured by metrics like precision, recall, F1, and MC
 ## Dependencies
 
 This package depends on:
-- `metapath-counts` - For generating the input metapath statistics
+- `metapath-counts` - For generating the input metapath statistics (local editable install from `../metapath-counts`)
 - `pandas` - For data manipulation
+- `bmt` - Biolink Model Toolkit for predicate and qualifier hierarchies
+
+### metapath-counts Dependency
+
+The `metapath-counts` package is installed from the local directory at `../metapath-counts` as an editable dependency. This allows for concurrent development of both packages.
+
+**IMPORTANT:** When working on features that require changes to metapath-counts:
+1. Make changes in the `../metapath-counts` directory
+2. Run `uv sync` in this project to pick up changes
+3. Test both packages together
+4. The metapath-counts documentation is in `../metapath-counts/CLAUDE.md`
+
+**See `../metapath-counts/CLAUDE.md` for complete documentation on:**
+- How metapath-counts generates the grouped TSV files this package consumes
+- The metapath format (e.g., `NodeType|predicate|direction|NodeType`)
+- Output file structure and performance metrics
+- Running the full metapath analysis pipeline
+
+## Graph Preparation
+
+Before running metapath analysis, graphs should be prepared using the `prepare_graph.py` script. This preprocessing:
+1. **Filters edges** - Removes specified predicates (default: `biolink:subclass_of`)
+2. **Removes orphaned nodes** - Drops nodes with no remaining edges after filtering
+3. **Generates redundant edges** - Adds edges for:
+   - Ancestor predicates (e.g., `affects` → `regulates`, `related_to`)
+   - Qualifier permutations with encoded predicates (e.g., `affects` with qualifiers → `affects_increased_activity`)
+
+### Qualifier Encoding
+
+When edges have `object_direction_qualifier` or `object_aspect_qualifier`, the qualifiers are encoded into the predicate name:
+- Both qualifiers: `biolink:affects_increased_activity`
+- Direction only: `biolink:affects_increased`
+- Aspect only: `biolink:affects_activity`
+- Neither: `biolink:affects`
+
+All qualifier fields are removed from the edge after encoding into the predicate name.
+
+### Prepare a Graph
+
+```bash
+uv run python scripts/prepare_graph.py \
+    --input ../translator_kg/Jan_20 \
+    --output ../translator_kg/Jan_20_filtered_redundant \
+    --filter-predicates biolink:subclass_of
+```
+
+The script expects input directory with `nodes.jsonl` and `edges.jsonl` files, and creates the same structure in the output directory.
 
 ## Project Structure
 
 ```
 biolink-rule-mining/
-├── src/rule_mining/         # Source code (library)
-│   ├── __init__.py
-│   ├── rule_extractor.py    # Load and filter rules
-│   └── rule_ranker.py       # Rank and aggregate rules
+├── src/
+│   ├── rule_mining/         # Rule mining library
+│   │   ├── __init__.py
+│   │   ├── rule_extractor.py    # Load and filter rules
+│   │   └── rule_ranker.py       # Rank and aggregate rules
+│   └── prepare/             # Graph preparation library
+│       ├── __init__.py
+│       ├── prepare_graph.py     # Main orchestration
+│       ├── filter_edges.py      # Edge filtering logic
+│       ├── redundant_edges.py   # Generate redundant edges
+│       └── node_tracker.py      # Track node usage
 ├── scripts/                 # CLI scripts
-│   └── mine_rules.py        # Main rule mining script
+│   ├── mine_rules.py        # Rule mining script
+│   └── prepare_graph.py     # Graph preparation script
 ├── tests/                   # Test suite
 ├── docs/                    # Documentation
 └── output/                  # Generated output (gitignored)

@@ -25,6 +25,7 @@ name = "biolink-rule-mining"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bmt" },
     { name = "metapath-counts" },
     { name = "pandas" },
 ]
@@ -36,7 +37,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "metapath-counts", git = "https://github.com/cbizon/metapath-counts.git" },
+    { name = "bmt", specifier = ">=1.0.0" },
+    { name = "metapath-counts", editable = "../metapath-counts" },
     { name = "pandas", specifier = ">=2.2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.2" },
 ]
@@ -375,12 +377,21 @@ wheels = [
 [[package]]
 name = "metapath-counts"
 version = "0.1.0"
-source = { git = "https://github.com/cbizon/metapath-counts.git#4800ec0ff23b6289ef7ed36bcd27f2531d7bcdbe" }
+source = { editable = "../metapath-counts" }
 dependencies = [
     { name = "bmt" },
     { name = "psutil" },
     { name = "python-graphblas" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "bmt", specifier = ">=1.4.6" },
+    { name = "psutil", specifier = ">=7.1.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.2" },
+    { name = "python-graphblas", specifier = ">=2025.2.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "numba"

@@ -4,9 +4,13 @@ version = "0.1.0"
 description = "Mine association rules from biolink metapath statistics"
 requires-python = ">=3.12"
 dependencies = [
-    "metapath-counts @ git+https://github.com/cbizon/metapath-counts.git",
+    "metapath-counts",
     "pandas>=2.2.0",
+    "bmt>=1.0.0",
 ]
+
+[tool.uv.sources]
+metapath-counts = { path = "../metapath-counts", editable = true }
 
 [project.optional-dependencies]
 dev = [
@@ -25,4 +29,4 @@ pythonpath = ["src"]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/rule_mining"]
+packages = ["src/rule_mining", "src/prepare"]
