@@ -2,10 +2,13 @@
 
 import json
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, TYPE_CHECKING
 
 from .node_tracker import NodeTracker
 from .redundant_edges import RedundantEdgeGenerator
+
+if TYPE_CHECKING:
+    from .degree_filter import TypeStratifiedDegreeCounter, NodeTypeMap
 
 
 def should_filter_edge(edge: dict, filter_predicates: list[str]) -> bool:
@@ -118,3 +121,112 @@ def process_edges(
                 print(f"  Processed {edges_read:,} edges, written {edges_written:,}...")
 
     return edges_read, edges_filtered, edges_written
+
+
+def count_degrees(
+    input_path: Path,
+    degree_counter: "TypeStratifiedDegreeCounter",
+    filter_predicates: list[str],
+) -> tuple[int, int]:
+    """Count type-stratified degrees for edges.
+
+    Only counts edges that would pass predicate filtering.
+
+    Args:
+        input_path: Path to input edges.jsonl
+        degree_counter: TypeStratifiedDegreeCounter to update
+        filter_predicates: List of predicates to filter out
+
+    Returns:
+        Tuple of (edges_read, edges_filtered)
+    """
+    edges_read = 0
+    edges_filtered = 0
+
+    with open(input_path) as infile:
+        for line in infile:
+            edges_read += 1
+
+            edge = json.loads(line)
+
+            # Skip filtered predicates
+            if should_filter_edge(edge, filter_predicates):
+                edges_filtered += 1
+                continue
+
+            # Count this edge
+            degree_counter.count_edge(edge)
+
+            # Progress indicator
+            if edges_read % 1000000 == 0:
+                print(f"  Processed {edges_read:,} edges...")
+
+    return edges_read, edges_filtered
+
+
+def process_edges_with_hub_filter(
+    input_path: Path,
+    output_path: Path,
+    node_tracker: NodeTracker,
+    filter_predicates: list[str],
+    generate_redundant: bool,
+    hub_triples: set[tuple[str, str, str]],
+    node_type_map: "NodeTypeMap",
+) -> tuple[int, int, int, int]:
+    """Process edges with both predicate and hub filtering.
+
+    Args:
+        input_path: Path to input edges.jsonl
+        output_path: Path to output edges.jsonl
+        node_tracker: NodeTracker to record node usage
+        filter_predicates: List of predicates to filter out
+        generate_redundant: If True, generate redundant edges
+        hub_triples: Set of (node_id, neighbor_type, predicate) triples to filter
+        node_type_map: Map of node IDs to types
+
+    Returns:
+        Tuple of (edges_read, edges_filtered_predicate, edges_filtered_hub, edges_written)
+    """
+    from .degree_filter import should_filter_hub_edge
+
+    if generate_redundant:
+        generator = RedundantEdgeGenerator()
+
+    edges_read = 0
+    edges_filtered_predicate = 0
+    edges_filtered_hub = 0
+    edges_written = 0
+
+    with open(input_path) as infile, open(output_path, "w") as outfile:
+        for line in infile:
+            edges_read += 1
+
+            edge = json.loads(line)
+
+            # Filter by predicate
+            if should_filter_edge(edge, filter_predicates):
+                edges_filtered_predicate += 1
+                continue
+
+            # Filter by hub nodes
+            if should_filter_hub_edge(edge, hub_triples, node_type_map):
+                edges_filtered_hub += 1
+                continue
+
+            # Process edge
+            if generate_redundant:
+                for redundant_edge in generator.generate_redundant_edges(edge):
+                    node_tracker.mark_edge(redundant_edge)
+                    outfile.write(json.dumps(redundant_edge) + "\n")
+                    edges_written += 1
+            else:
+                processed_edge = encode_qualifiers_simple(edge)
+                node_tracker.mark_edge(processed_edge)
+                outfile.write(json.dumps(processed_edge) + "\n")
+                edges_written += 1
+
+            # Progress indicator
+            if edges_read % 1000000 == 0:
+                print(f"  Processed {edges_read:,} edges, written {edges_written:,}...")
+
+    return edges_read, edges_filtered_predicate, edges_filtered_hub, edges_written

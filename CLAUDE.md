@@ -86,6 +86,36 @@ When edges have `object_direction_qualifier` or `object_aspect_qualifier`, the q
 
 All qualifier fields are removed from the edge after encoding into the predicate name.
 
+### Hub Node Filtering
+
+Some nodes have extremely high degree to specific node types with specific predicates (e.g., a generic chemical like "diglyceride" connected to 50k activities via "affects" but only 100 genes via "regulates"). These "hub nodes" create combinatorial explosions in rule mining.
+
+The `--max-degree-per-type` parameter filters edges based on **type-stratified, predicate-specific degree**:
+- Counts how many edges each node has to nodes of each specific type **with each specific predicate**
+- Uses pseudotypes for nodes with multiple categories (e.g., Gene+Protein)
+- Uses compound predicates that encode qualifiers (e.g., `affects--increased--activity`)
+- Filters edges from nodes exceeding the threshold for any particular (type, predicate) combination
+- Example: `diglyceride → MolecularActivity via affects--increased--activity` (50k edges) gets filtered, but `diglyceride → MolecularActivity via regulates` (100 edges) is kept
+
+When hub filtering is enabled:
+1. Node types are loaded from `nodes.jsonl` using pseudotypes for multi-category nodes (e.g., Gene+Protein)
+2. Type-stratified degrees are counted per (node, neighbor_type, compound_predicate) triple
+3. Hub (node, type, predicate) triples exceeding threshold are identified
+4. A report is written to `hub_nodes_filtered.tsv` with columns:
+   - `node_id`: The hub node ID
+   - `node_name`: The hub node's name
+   - `node_category`: The hub node's type (may be pseudotype like Gene+Protein)
+   - `neighbor_category`: The type it's over-connected to
+   - `predicate`: The compound predicate (includes qualifiers like `affects--increased--activity`)
+   - `edge_count`: Number of edges for this (node, type, predicate) triple
+5. Edges matching hub triples are filtered out
+
+**Compound Predicates:** Following the metapath-counts format, qualifiers are encoded as:
+- `affects--increased--activity` (both direction and aspect qualifiers)
+- `affects--decreased--` (direction only)
+- `affects----activity` (aspect only)
+- `affects` (no qualifiers)
+
 ### Prepare a Graph
 
 **With redundant edges (default):**
@@ -105,6 +135,18 @@ uv run python scripts/prepare_graph.py \
     --no-redundant
 ```
 
+**With hub node filtering (type-stratified degree limit):**
+```bash
+uv run python scripts/prepare_graph.py \
+    --input ../translator_kg/Jan_20 \
+    --output ../translator_kg/Jan_20_filtered_nonredundant \
+    --filter-predicates biolink:subclass_of \
+    --no-redundant \
+    --max-degree-per-type 10000
+```
+
+This filters out edges from nodes with more than 10,000 connections to any specific node type. A TSV report of filtered hub nodes will be written to `hub_nodes_filtered.tsv` in the output directory.
+
 The script expects input directory with `nodes.jsonl` and `edges.jsonl` files, and creates the same structure in the output directory.
 
 ## Project Structure
@@ -121,6 +163,7 @@ biolink-rule-mining/
 │       ├── prepare_graph.py     # Main orchestration
 │       ├── filter_edges.py      # Edge filtering logic
 │       ├── redundant_edges.py   # Generate redundant edges
+│       ├── degree_filter.py     # Type-stratified hub filtering
 │       └── node_tracker.py      # Track node usage
 ├── scripts/                 # CLI scripts
 │   ├── mine_rules.py        # Rule mining script
