@@ -51,6 +51,13 @@ def main():
         help="Disable redundant edge generation (only encode qualifiers, no ancestors)",
     )
 
+    parser.add_argument(
+        "--max-degree-per-type",
+        type=int,
+        default=None,
+        help="Filter nodes with more than N edges to any specific node type (default: no filtering)",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -59,6 +66,7 @@ def main():
             output_dir=args.output,
             filter_predicates=args.filter_predicates,
             generate_redundant=not args.no_redundant,
+            max_degree_per_type=args.max_degree_per_type,
         )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
